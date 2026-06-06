@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manuel Assist — Recolección</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg:      #0b0b18;
+  --card:    #13132a;
+  --border:  #252545;
+  --text:    #e2e2f0;
+  --muted:   #6b7280;
+  --green:   #22c55e;
+  --blue:    #3b82f6;
+  --amber:   #f59e0b;
+  --purple:  #a855f7;
+  --red:     #ef4444;
+  --cyan:    #06b6d4;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HEADER ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 2rem;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+header h1 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, #60a5fa, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-right { display: flex; align-items: center; gap: 1.5rem; }
+
+#conn-badge, #sim-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+#fps-badge { font-size: 0.75rem; color: var(--muted); font-family: monospace; }
+
+.dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  flex-shrink: 0;
+  transition: background 0.4s;
+}
+.dot.on  { background: var(--green); }
+.dot.sim { background: var(--cyan); animation: pulse 1.2s infinite; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── LAYOUT ── */
+main {
+  display: grid;
+  grid-template-columns: 310px 1fr;
+  gap: 1.25rem;
+  padding: 1.25rem 1.75rem;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── PANELS ── */
+.panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.panel-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+/* ── LEFT COLUMN ── */
+.left-col { display: flex; flex-direction: column; gap: 1.25rem; }
+
+.field { display: flex; flex-direction: column; gap: 0.35rem; }
+
+label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+select, input[type=number] {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.55rem 0.75rem;
+  font-size: 0.92rem;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+select:focus, input[type=number]:focus { border-color: var(--blue); }
+select:disabled, input[type=number]:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.btn {
+  padding: 0.65rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: opacity 0.2s, transform 0.15s;
+  width: 100%;
+}
+.btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+.btn-start  { background: linear-gradient(135deg, #3b82f6, #6366f1); color: #fff; }
+.btn-cancel { background: var(--red); color: #fff; display: none; }
+.btn-sim    { background: var(--card); border: 1px solid var(--cyan); color: var(--cyan); }
+.btn-sim.active { background: rgba(6,182,212,0.15); }
+
+.btn-row { display: flex; flex-direction: column; gap: 0.5rem; }
+
+/* Resumen */
+#summary {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 2;
+}
+#summary strong { color: var(--text); }
+#file-path {
+  margin-top: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--blue);
+  font-family: monospace;
+  word-break: break-all;
+}
+
+/* ── RIGHT COLUMN ── */
+.right-col { display: flex; flex-direction: column; gap: 1.25rem; }
+
+/* Phase card */
+#phase-card {
+  text-align: center;
+  padding: 2rem 2rem 1.5rem;
+  border: 2px solid var(--border);
+  transition: border-color 0.35s, box-shadow 0.35s;
+  position: relative;
+  overflow: hidden;
+}
+#phase-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.35s;
+  pointer-events: none;
+}
+#phase-card.move   { border-color: var(--green);  box-shadow: 0 0 40px rgba(34,197,94,.18); }
+#phase-card.rest   { border-color: var(--blue);   box-shadow: 0 0 40px rgba(59,130,246,.18); }
+#phase-card.prepare{ border-color: var(--amber);  box-shadow: 0 0 40px rgba(245,158,11,.18); }
+#phase-card.done   { border-color: var(--purple); box-shadow: 0 0 40px rgba(168,85,247,.18); }
+#phase-card.idle   { border-color: var(--border); box-shadow: none; }
+
+#phase-text {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  transition: color 0.3s;
+  text-transform: uppercase;
+}
+#phase-card.move    #phase-text { color: var(--green); }
+#phase-card.rest    #phase-text { color: var(--blue); }
+#phase-card.prepare #phase-text { color: var(--amber); }
+#phase-card.done    #phase-text { color: var(--purple); }
+
+#countdown-num {
+  font-size: 5.5rem;
+  font-weight: 900;
+  color: var(--text);
+  line-height: 1;
+  margin: 0.35rem 0 0.5rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+#rep-info { font-size: 0.95rem; color: var(--muted); margin-bottom: 0.75rem; }
+
+.prog-track {
+  background: var(--border);
+  border-radius: 999px;
+  height: 6px;
+  overflow: hidden;
+}
+.prog-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--blue), var(--purple));
+  transition: width 0.4s ease;
+  width: 0%;
+}
+
+#frames-badge {
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-family: monospace;
+}
+
+/* Sensor table */
+#sensor-card { flex-shrink: 0; }
+
+#sensor-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+#sensor-table th {
+  color: var(--muted);
+  text-align: left;
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+  font-size: 0.72rem;
+}
+#sensor-table td {
+  padding: 0.32rem 0.6rem;
+  border-bottom: 1px solid rgba(37,37,69,0.6);
+}
+.ch-label { color: var(--purple); font-weight: 700; }
+.vp { color: #4ade80; }
+.vn { color: #f87171; }
+
+/* Log */
+#log-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+#log-scroll {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+.log-row { display: flex; gap: 0.75rem; font-size: 0.75rem; font-family: monospace; }
+.log-t  { color: #374151; min-width: 76px; }
+.log-ok   { color: #4ade80; }
+.log-warn { color: #fbbf24; }
+.log-err  { color: #f87171; }
+.log-info { color: #93c5fd; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <h1>⚙ Manuel Assist — Recolección de Datos</h1>
+  <div class="header-right">
+    <span id="fps-badge">-- fps</span>
+    <div id="sim-badge" style="display:none">
+      <div class="dot sim"></div>
+      <span>Simulación</span>
+    </div>
+    <div id="conn-badge">
+      <div class="dot" id="conn-dot"></div>
+      <span id="conn-text">Esperando ESP32...</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── MAIN ── -->
+<main>
+
+  <!-- ── IZQUIERDA: Configuración ── -->
+  <div class="left-col">
+
+    <div class="panel">
+      <div class="panel-title">Configuración de sesión</div>
+
+      <div class="field" style="margin-bottom:0.85rem">
+        <label>Gesto a grabar</label>
+        <select id="sel-gesture">
+          <option value="reposo">Reposo — mano abierta, quieta</option>
+          <option value="borrar">Borrar — índice enroscado</option>
+          <option value="espacio">Espacio — índice + pulgar juntos</option>
+          <option value="enter">Enter — índice + medio, subir</option>
+          <option value="scroll_abajo">Scroll abajo — 4 dedos enroscados</option>
+        </select>
+      </div>
+
+      <div class="config-grid" style="margin-bottom:0.85rem">
+        <div class="field">
+          <label>Repeticiones</label>
+          <input id="inp-reps" type="number" value="100" min="1" max="500">
+        </div>
+        <div class="field">
+          <label>Duración mov. (s)</label>
+          <input id="inp-move" type="number" value="2" min="0.5" max="10" step="0.5">
+        </div>
+        <div class="field">
+          <label>Descanso (s)</label>
+          <input id="inp-rest" type="number" value="1.5" min="0.5" max="10" step="0.5">
+        </div>
+        <div class="field">
+          <label>Prep. inicial (s)</label>
+          <input id="inp-prep" type="number" value="3" min="1" max="10" step="0.5">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-start"  id="btn-start">INICIAR SESIÓN</button>
+        <button class="btn btn-cancel" id="btn-cancel">CANCELAR</button>
+        <button class="btn btn-sim"    id="btn-sim">🔵 Modo Simulación (sin hardware)</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Resumen de sesión</div>
+      <div id="summary">Sin sesión activa.</div>
+      <div id="file-path"></div>
+    </div>
+
+  </div>
+
+  <!-- ── DERECHA: Estado + sensores + log ── -->
+  <div class="right-col">
+
+    <!-- Fase actual -->
+    <div class="panel idle" id="phase-card">
+      <div id="phase-text">Listo para iniciar</div>
+      <div id="countdown-num">--</div>
+      <div id="rep-info">Selecciona un gesto y presiona INICIAR</div>
+      <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+      <div id="frames-badge"></div>
+    </div>
+
+    <!-- Sensores en vivo -->
+    <div class="panel" id="sensor-card">
+      <div class="panel-title">Datos en vivo — última trama</div>
+      <table id="sensor-table">
+        <thead>
+          <tr>
+            <th>Dedo</th>
+            <th>ax (g)</th>
+            <th>ay (g)</th>
+            <th>az (g)</th>
+            <th>gx (°/s)</th>
+            <th>gy (°/s)</th>
+            <th>gz (°/s)</th>
+          </tr>
+        </thead>
+        <tbody id="sensor-body">
+          <tr>
+            <td colspan="7" style="color:var(--muted);text-align:center;padding:0.8rem">
+              Esperando datos del ESP32...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Log -->
+    <div class="panel" id="log-card">
+      <div class="panel-title">Log de sesión</div>
+      <div id="log-scroll"></div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ── WebSocket ─────────────────────────────────────────────────────
+const ws = new WebSocket(`ws://${location.host}/ws`);
+
+// Resolvers para mensajes esperados
+const pending = {};
+function waitFor(type, timeoutMs = 8000) {
+  return new Promise(resolve => {
+    const timer = setTimeout(() => {
+      delete pending[type];
+      resolve({ timeout: true });
+    }, timeoutMs);
+    pending[type] = msg => { clearTimeout(timer); resolve(msg); };
+  });
+}
+
+ws.onopen  = () => log("Servidor conectado", "info");
+ws.onclose = () => { log("Conexión perdida — recarga la página", "err"); setConn(false, null); };
+
+ws.onmessage = ({ data }) => {
+  const msg = JSON.parse(data);
+
+  // Resolver promesas pendientes
+  if (pending[msg.type]) { pending[msg.type](msg); delete pending[msg.type]; }
+
+  switch (msg.type) {
+    case "status":
+      setConn(msg.connected, msg.esp_ip);
+      if (msg.simulating) simActive = true;
+      break;
+    case "frame":
+      updateTable(msg.data);
+      updateFps(msg.fps);
+      break;
+    case "session_opened":
+      log(`Archivo creado: ${msg.filename}`, "ok");
+      $("file-path").textContent = "📄 " + (msg.filepath ?? msg.filename);
+      break;
+    // rep_done y session_ended los maneja startSession() directamente
+    case "sim_status":
+      simActive = msg.active;
+      updateSimBtn();
+      if (simActive) {
+        $("sim-badge").style.display = "flex";
+        log("Modo simulación ACTIVO — generando datos fake a 30fps", "warn");
+      } else {
+        $("sim-badge").style.display = "none";
+        log("Modo simulación desactivado", "info");
+      }
+      break;
+  }
+};
+
+// ── Estado ────────────────────────────────────────────────────────
+let cancelled   = false;
+let sessionOn   = false;
+let simActive   = false;
+let totalFrames = 0;
+let currentRep  = 0;
+let totalReps   = 0;
+let countdownInterval = null;
+
+const FINGER = { "2":"Pulgar","3":"Índice","4":"Medio","5":"Anular","6":"Meñique" };
+
+// ── Helpers DOM ───────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function setConn(ok, ip) {
+  $("conn-dot").className  = "dot" + (ok ? " on" : "");
+  $("conn-text").textContent = ok ? `ESP32 — ${ip}` : "Esperando ESP32...";
+}
+
+function updateFps(fps) {
+  $("fps-badge").textContent = fps > 0 ? `${fps.toFixed(1)} fps` : "-- fps";
+}
+
+function setPhase(phase, text) {
+  $("phase-card").className = `panel ${phase}`;
+  $("phase-text").textContent = text;
+}
+
+function setCountdown(v) {
+  $("countdown-num").textContent = v === null ? "--" : v.toFixed(1);
+}
+
+function setRepInfo(rep, total) {
+  $("rep-info").textContent = total > 0 ? `Repetición ${rep} de ${total}` : "";
+}
+
+function setProgress(pct) {
+  $("prog-fill").style.width = `${pct}%`;
+}
+
+function updateSummary() {
+  const g = $("sel-gesture").value;
+  $("summary").innerHTML =
+    `Gesto: <strong>${g}</strong><br>` +
+    `Reps: <strong>${currentRep} / ${totalReps}</strong><br>` +
+    `Frames totales: <strong>${totalFrames}</strong>`;
+}
+
+function log(msg, type = "info") {
+  const el   = $("log-scroll");
+  const now  = new Date().toLocaleTimeString("es-BO", { hour12: false });
+  const row  = document.createElement("div");
+  row.className = "log-row";
+  row.innerHTML = `<span class="log-t">${now}</span><span class="log-${type}">${msg}</span>`;
+  el.appendChild(row);
+  el.scrollTop = el.scrollHeight;
+  while (el.children.length > 60) el.removeChild(el.firstChild);
+}
+
+function fmtVal(v) {
+  const n   = parseFloat(v);
+  const cls = n >= 0 ? "vp" : "vn";
+  const s   = (n >= 0 ? "+" : "") + n.toFixed(3);
+  return `<span class="${cls}">${s}</span>`;
+}
+
+function updateTable(data) {
+  $("sensor-body").innerHTML = Object.entries(data)
+    .sort(([a], [b]) => +a - +b)
+    .map(([ch, vals]) => `
+      <tr>
+        <td class="ch-label">${FINGER[ch] ?? "CH"+ch}</td>
+        ${vals.map(v => `<td>${fmtVal(v)}</td>`).join("")}
+      </tr>`)
+    .join("");
+}
+
+// ── Countdown animado ─────────────────────────────────────────────
+function showCountdown(phase, text, seconds) {
+  return new Promise(resolve => {
+    setPhase(phase, text);
+    let rem = seconds;
+    setCountdown(rem);
+    clearInterval(countdownInterval);
+    countdownInterval = setInterval(() => {
+      if (cancelled) { clearInterval(countdownInterval); resolve(); return; }
+      rem -= 0.1;
+      setCountdown(Math.max(0, rem));
+      if (rem <= 0) { clearInterval(countdownInterval); resolve(); }
+    }, 100);
+  });
+}
+
+// ── Simulación ────────────────────────────────────────────────────
+function updateSimBtn() {
+  const btn = $("btn-sim");
+  if (simActive) {
+    btn.textContent = "⏹ Detener simulación";
+    btn.classList.add("active");
+  } else {
+    btn.textContent = "🔵 Modo Simulación (sin hardware)";
+    btn.classList.remove("active");
+  }
+}
+
+$("btn-sim").addEventListener("click", () => {
+  if (!simActive) {
+    ws.send(JSON.stringify({ action: "sim_start" }));
+  } else {
+    ws.send(JSON.stringify({ action: "sim_stop" }));
+  }
+});
+
+// ── SESIÓN ────────────────────────────────────────────────────────
+$("btn-start").addEventListener("click", startSession);
+$("btn-cancel").addEventListener("click", cancelSession);
+
+function setControlsEnabled(on) {
+  $("sel-gesture").disabled = !on;
+  $("inp-reps").disabled    = !on;
+  $("inp-move").disabled    = !on;
+  $("inp-rest").disabled    = !on;
+  $("inp-prep").disabled    = !on;
+  $("btn-start").style.display  = on ? "block" : "none";
+  $("btn-cancel").style.display = on ? "none"  : "block";
+}
+
+async function startSession() {
+  const gesture = $("sel-gesture").value;
+  const reps    = parseInt($("inp-reps").value);
+  const moveDur = parseFloat($("inp-move").value);
+  const restDur = parseFloat($("inp-rest").value);
+  const prepDur = parseFloat($("inp-prep").value);
+
+  cancelled   = false;
+  sessionOn   = true;
+  totalFrames = 0;
+  totalReps   = reps;
+  currentRep  = 0;
+
+  setControlsEnabled(false);
+  log(`Iniciando sesión: ${gesture} × ${reps} repeticiones`);
+
+  try {
+    // Abrir sesión
+    ws.send(JSON.stringify({ action: "session_start", gesture }));
+    const openMsg = await waitFor("session_opened");
+    if (openMsg.cancelled || openMsg.timeout) return;
+
+    // Cuenta regresiva inicial
+    await showCountdown("prepare", "PREPÁRATE...", prepDur);
+
+    // Bucle de repeticiones
+    for (let rep = 1; rep <= reps && !cancelled; rep++) {
+      currentRep = rep;
+      setRepInfo(rep, reps);
+      setProgress(((rep - 1) / reps) * 100);
+
+      // Prep corta entre reps
+      if (rep > 1 && !cancelled) {
+        await showCountdown("prepare", `REP ${rep} — PREPÁRATE`, 1.0);
+      }
+      if (cancelled) break;
+
+      // ── Grabar movimiento ──
+      let recordingStarted = false;
+      ws.send(JSON.stringify({ action: "record_start", rep }));
+      const startMsg = await waitFor("rep_started");
+      if (!startMsg.cancelled && !startMsg.timeout) recordingStarted = true;
+
+      if (!cancelled) {
+        await showCountdown("move", "HAZ EL MOVIMIENTO", moveDur);
+      }
+
+      // Siempre detener si se inició
+      if (recordingStarted) {
+        ws.send(JSON.stringify({ action: "record_stop", rep }));
+        const result = await waitFor("rep_done");
+        const frames = result.frames ?? 0;
+
+        // Solo loguear si no fue cancelado
+        if (!cancelled && !result.cancelled && !result.timeout) {
+          totalFrames += frames;
+          if (frames === 0) {
+            log(`Rep ${rep} — ⚠ 0 frames (¿ESP32 conectado? Prueba Modo Simulación)`, "warn");
+          } else {
+            log(`Rep ${rep} — ${frames} frames guardados (acum: ${totalFrames})`, "ok");
+          }
+          $("frames-badge").textContent = `Frames acumulados: ${totalFrames}`;
+          setProgress((rep / reps) * 100);
+          updateSummary();
+        }
+      }
+
+      // ── Descanso ──
+      if (!cancelled && rep < reps) {
+        await showCountdown("rest", "DESCANSO", restDur);
+      }
+    }
+
+  } finally {
+    // Cierre siempre limpio
+    ws.send(JSON.stringify({ action: "session_end" }));
+    await waitFor("session_ended", 3000);
+
+    if (!cancelled) {
+      setPhase("done", "SESIÓN COMPLETADA ✓");
+      setCountdown(null);
+      setRepInfo(totalReps, totalReps);
+      setProgress(100);
+      log(`¡Listo! ${totalFrames} frames totales para "${gesture}"`, "ok");
+    } else {
+      setPhase("idle", "Cancelado");
+      setCountdown(null);
+      log(`Sesión cancelada en rep ${currentRep} — datos parciales guardados`, "warn");
+    }
+
+    updateSummary();
+    setControlsEnabled(true);
+    sessionOn = false;
+  }
+}
+
+function cancelSession() {
+  cancelled = true;
+  // NO limpiar countdownInterval aquí — el propio intervalo detecta cancelled=true
+  // en su siguiente tick (100ms) y llama resolve() para desbloquear startSession()
+  Object.values(pending).forEach(fn => fn({ cancelled: true }));
+  Object.keys(pending).forEach(k => delete pending[k]);
+  log("Cancelando sesión...", "warn");
+}
+</script>
+</body>
+</html>
