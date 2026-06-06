@@ -1,0 +1,39 @@
+{
+  "clases": [
+    "borrar",
+    "espacio",
+    "reposo"
+  ],
+  "window_size": 1,
+  "features": [
+    "pulgar_ax",
+    "pulgar_ay",
+    "pulgar_az",
+    "pulgar_gx",
+    "pulgar_gy",
+    "pulgar_gz",
+    "indice_ax",
+    "indice_ay",
+    "indice_az",
+    "indice_gx",
+    "indice_gy",
+    "indice_gz",
+    "medio_ax",
+    "medio_ay",
+    "medio_az",
+    "anular_ax",
+    "anular_ay",
+    "anular_az",
+    "anular_gx",
+    "anular_gy",
+    "anular_gz",
+    "menique_ax",
+    "menique_ay",
+    "menique_az",
+    "menique_gx",
+    "menique_gy",
+    "menique_gz"
+  ],
+  "input_size": 27,
+  "n_clases": 3
+}
